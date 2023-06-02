@@ -39,6 +39,13 @@ public class StaticData {
 	private static final Set<String> FORBIDDEN_CONTAINERS = Set.of( "java", "minecraft" );
 	
 	/**
+	 * I'm not aware of any *specific* thread safety issues with any of the code here, but by synchronizing all the
+	 * public methods (except getStaticDataDir), and holding no mutable state, we can be sure of its safety when
+	 * accessing it from both client and server, or from additional unknown worker threads.
+	 */
+	private static final Object GLOBAL_MUTEX = new Object();
+	
+	/**
 	 * Gets a Path to the folder in the game directory which will be searched for additional static data files provided
 	 * by the modpack.
 	 * @return The staticdata folder path
@@ -54,40 +61,42 @@ public class StaticData {
 	 * @return A list of StaticDataItems that represent the file requested.
 	 */
 	public static List<StaticDataItem> getExactData(Identifier resourceId) {
-		List<StaticDataItem> result = new ArrayList<>();
-		
-		for(ModContainer container : QuiltLoader.getAllMods()) {
-			if (FORBIDDEN_CONTAINERS.contains(container.metadata().id())) continue;
+		synchronized(GLOBAL_MUTEX) {
+			List<StaticDataItem> result = new ArrayList<>();
 			
-			StaticDataImpl.addExactData(
-					container.metadata().id(),
-					resourceId,
-					container.rootPath().resolve("staticdata"),
-					result
-					);
-		}
-		
-		Path saticDataDir = getStaticDataDir();
-		boolean searchFiles = true;
-		if (!Files.exists(saticDataDir)) {
-			searchFiles = false;
-			try {
-				Files.createDirectory(saticDataDir);
-			} catch (IOException e) {
-				// Creating the directory is a nice-to-have but we don't really care if it fails.
+			for(ModContainer container : QuiltLoader.getAllMods()) {
+				if (FORBIDDEN_CONTAINERS.contains(container.metadata().id())) continue;
+				
+				StaticDataImpl.addExactData(
+						container.metadata().id(),
+						resourceId,
+						container.rootPath().resolve("staticdata"),
+						result
+						);
 			}
+			
+			Path saticDataDir = getStaticDataDir();
+			boolean searchFiles = true;
+			if (!Files.exists(saticDataDir)) {
+				searchFiles = false;
+				try {
+					Files.createDirectory(saticDataDir);
+				} catch (IOException e) {
+					// Creating the directory is a nice-to-have but we don't really care if it fails.
+				}
+			}
+			
+			if (searchFiles) {
+				StaticDataImpl.addExactData(
+						"file",
+						resourceId,
+						getStaticDataDir(),
+						result
+						);
+			}
+			
+			return List.copyOf(result);
 		}
-		
-		if (searchFiles) {
-			StaticDataImpl.addExactData(
-					"file",
-					resourceId,
-					getStaticDataDir(),
-					result
-					);
-		}
-		
-		return List.copyOf(result);
 	}
 	
 	/**
@@ -99,41 +108,43 @@ public class StaticData {
 	 * @return A list of StaticDataItems that match the criteria specified
 	 */
 	public static List<StaticDataItem> getDataInDirectory(Identifier resourceId, boolean recursive) {
-		List<StaticDataItem> result = new ArrayList<>();
-		
-		for(ModContainer container : QuiltLoader.getAllMods()) {
-			if (FORBIDDEN_CONTAINERS.contains(container.metadata().id())) continue;
+		synchronized(GLOBAL_MUTEX) {
+			List<StaticDataItem> result = new ArrayList<>();
 			
-			StaticDataImpl.addDirectoryData(
-					container.metadata().id(),
-					resourceId,
-					container.rootPath().resolve("staticdata"),
-					recursive,
-					result
-					);
-		}
-		
-		Path saticDataDir = getStaticDataDir();
-		boolean searchFiles = true;
-		if (!Files.exists(saticDataDir)) {
-			searchFiles = false;
-			try {
-				Files.createDirectory(saticDataDir);
-			} catch (IOException e) {
-				// Creating the directory is a nice-to-have but we don't really care if it fails.
+			for(ModContainer container : QuiltLoader.getAllMods()) {
+				if (FORBIDDEN_CONTAINERS.contains(container.metadata().id())) continue;
+				
+				StaticDataImpl.addDirectoryData(
+						container.metadata().id(),
+						resourceId,
+						container.rootPath().resolve("staticdata"),
+						recursive,
+						result
+						);
 			}
+			
+			Path saticDataDir = getStaticDataDir();
+			boolean searchFiles = true;
+			if (!Files.exists(saticDataDir)) {
+				searchFiles = false;
+				try {
+					Files.createDirectory(saticDataDir);
+				} catch (IOException e) {
+					// Creating the directory is a nice-to-have but we don't really care if it fails.
+				}
+			}
+			
+			if (searchFiles) {
+				StaticDataImpl.addDirectoryData(
+						"file",
+						resourceId,
+						getStaticDataDir(),
+						recursive,
+						result
+						);
+			}
+			
+			return List.copyOf(result);
 		}
-		
-		if (searchFiles) {
-			StaticDataImpl.addDirectoryData(
-					"file",
-					resourceId,
-					getStaticDataDir(),
-					recursive,
-					result
-					);
-		}
-		
-		return List.copyOf(result);
 	}
 }
