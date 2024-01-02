@@ -1,6 +1,7 @@
 plugins {
 	id "maven-publish"
 	id "fabric-loom" version "1.4-SNAPSHOT"
+	id "signing"
 }
 
 
@@ -54,5 +55,12 @@ publishing {
 	}
 	
 	repositories {
+	}
+}
+
+signing {
+	if (project.hasProperty("signing.keyId")) {
+		sign configurations.archives;
+		sign publishing.publications.mavenJava
 	}
 }
