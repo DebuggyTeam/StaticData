@@ -7,10 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import org.quiltmc.loader.api.ModContainer;
-import org.quiltmc.loader.api.QuiltLoader;
-
 import gay.debuggy.staticdata.impl.StaticDataImpl;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.util.Identifier;
 
 /**
@@ -51,7 +50,7 @@ public class StaticData {
 	 * @return The staticdata folder path
 	 */
 	public static Path getStaticDataDir() {
-		return QuiltLoader.getGameDir().resolve("staticdata");
+		return FabricLoader.getInstance().getGameDir().resolve("staticdata");
 	}
 	
 	/**
@@ -64,15 +63,17 @@ public class StaticData {
 		synchronized(GLOBAL_MUTEX) {
 			List<StaticDataItem> result = new ArrayList<>();
 			
-			for(ModContainer container : QuiltLoader.getAllMods()) {
-				if (FORBIDDEN_CONTAINERS.contains(container.metadata().id())) continue;
+			for(ModContainer container : FabricLoader.getInstance().getAllMods()) {
+				if (FORBIDDEN_CONTAINERS.contains(container.getMetadata().getId())) continue;
 				
-				StaticDataImpl.addExactData(
-						container.metadata().id(),
+				for(Path p : container.getRootPaths()) {
+					StaticDataImpl.addExactData(
+						container.getMetadata().getId(),
 						resourceId,
-						container.rootPath().resolve("staticdata"),
+						p.resolve("staticdata"),
 						result
-						);
+					);
+				}
 			}
 			
 			Path saticDataDir = getStaticDataDir();
@@ -111,16 +112,18 @@ public class StaticData {
 		synchronized(GLOBAL_MUTEX) {
 			List<StaticDataItem> result = new ArrayList<>();
 			
-			for(ModContainer container : QuiltLoader.getAllMods()) {
-				if (FORBIDDEN_CONTAINERS.contains(container.metadata().id())) continue;
+			for(ModContainer container : FabricLoader.getInstance().getAllMods()) {
+				if (FORBIDDEN_CONTAINERS.contains(container.getMetadata().getId())) continue;
 				
-				StaticDataImpl.addDirectoryData(
-						container.metadata().id(),
-						resourceId,
-						container.rootPath().resolve("staticdata"),
-						recursive,
-						result
-						);
+				for(Path p : container.getRootPaths()) {
+					StaticDataImpl.addDirectoryData(
+							container.getMetadata().getId(),
+							resourceId,
+							p.resolve("staticdata"),
+							recursive,
+							result
+							);
+				}
 			}
 			
 			Path saticDataDir = getStaticDataDir();
