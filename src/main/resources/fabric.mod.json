@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "staticdata",
+	"version": "${version}",
+	"name": "StaticData",
+	"description": "Effortless mod integration through early access to shared data.",
+	"authors": [
+		"Falkreon"
+	],
+	"contact": {
+		"homepage": "https://github.com/DebuggyTeam/StaticData",
+		"issues": "https://github.com/DebuggyTeam/StaticData/issues",
+		"sources": "https://github.com/DebuggyTeam/StaticData"
+	},
+	"license": "MIT",
+	"icon": "assets/staticdata/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"gay.debuggy.staticdata.StaticDataMod"
+		]
+	},
+	"mixins": [],
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~1.20.4",
+		"java": ">=17",
+		"fabric-api": "*"
+	},
+	"custom": {
+		"modmenu": {
+			"badges": [ "library" ]
+		}
+	}
+}
