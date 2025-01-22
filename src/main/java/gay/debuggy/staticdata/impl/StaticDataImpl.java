@@ -78,7 +78,7 @@ public class StaticDataImpl {
 				
 				String identifiedResourcePath = relativePath.relativize(file).toString();
 				if (identifiedResourcePath.startsWith("/")) identifiedResourcePath = identifiedResourcePath.substring(1);
-				PathDataItem item = new PathDataItem(modId, new Identifier(resId.getNamespace(), identifiedResourcePath), file);
+				PathDataItem item = new PathDataItem(modId, Identifier.of(resId.getNamespace(), identifiedResourcePath), file);
 				results.add(item);
 			}
 			
@@ -103,7 +103,7 @@ public class StaticDataImpl {
 						in.closeEntry();
 						
 						final String foundResourcePath = entryName.substring((resId.getNamespace()+"/").length());
-						Identifier foundResourceId = new Identifier(resId.getNamespace(), foundResourcePath);
+						Identifier foundResourceId = Identifier.of(resId.getNamespace(), foundResourcePath);
 						results.add(new CachedDataItem(modId, foundResourceId, data));
 					}
 				}
@@ -132,7 +132,7 @@ public class StaticDataImpl {
 						in.closeEntry();
 						
 						final String foundResourcePath = entryName.substring((resId.getNamespace()+"/").length());
-						Identifier foundResourceId = new Identifier(resId.getNamespace(), foundResourcePath);
+						Identifier foundResourceId = Identifier.of(resId.getNamespace(), foundResourcePath);
 						results.add(new CachedDataItem(modId, foundResourceId, data));
 					}
 				}
