@@ -6,7 +6,7 @@ plugins {
 
 
 base {
-    archivesName = project.archives_base_name
+	archivesName = project.archives_base_name
 }
 
 version = "${project.version}+${project.minecraft_version}"

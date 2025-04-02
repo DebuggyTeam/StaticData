@@ -77,7 +77,9 @@ public class StaticDataImpl {
 				if (!Files.isRegularFile(file)) return; //Don't list folders here
 				
 				String identifiedResourcePath = relativePath.relativize(file).toString();
-				if (identifiedResourcePath.startsWith("/")) identifiedResourcePath = identifiedResourcePath.substring(1);
+				if (identifiedResourcePath.startsWith("/") || identifiedResourcePath.startsWith("\\")) {
+					identifiedResourcePath = identifiedResourcePath.substring(1);
+				}
 				PathDataItem item = new PathDataItem(modId, Identifier.of(resId.getNamespace(), identifiedResourcePath), file);
 				results.add(item);
 			}
@@ -93,9 +95,11 @@ public class StaticDataImpl {
 			if (!entry.isDirectory() && entry.getSize() <= Integer.MAX_VALUE) {
 			
 				String entryName = entry.getName();
-				if (entryName.startsWith("/")) entryName = entryName.substring(1); // Chop off any leading slashes. typically doesn't happen.
+				if (entryName.startsWith("/") || entryName.startsWith("\\")) { // Chop off any leading slashes. typically doesn't happen.
+					entryName = entryName.substring(1);
+				}
 				
-				if (entryName.startsWith("staticdata/")) {
+				if (entryName.startsWith("staticdata/") || entryName.startsWith("staticdata\\")) {
 					entryName = entryName.substring("staticdata/".length());
 					
 					if (matchesExactFile(entryName, resId)) {
@@ -122,9 +126,11 @@ public class StaticDataImpl {
 		while (entry!=null) {
 			if (!entry.isDirectory() && entry.getSize() <= Integer.MAX_VALUE) {
 				String entryName = entry.getName();
-				if (entryName.startsWith("/")) entryName = entryName.substring(1); // Chop off any leading slashes. typically doesn't happen.
+				if (entryName.startsWith("/") || entryName.startsWith("\\")) { // Chop off any leading slashes. typically doesn't happen.
+					entryName = entryName.substring(1);
+				}
 				
-				if (entryName.startsWith("staticdata/")) {
+				if (entryName.startsWith("staticdata/") || entryName.startsWith("staticdata\\")) {
 					entryName = entryName.substring("staticdata/".length());
 					
 					if (matchesDirectoryContents(entryName, resId, recursive)) {
@@ -180,10 +186,10 @@ public class StaticDataImpl {
 	}
 	
 	public static boolean matchesExactFile(String partialPath, Identifier resourceId) {
-		if (partialPath.startsWith("/")) partialPath = partialPath.substring(1);
+		if (partialPath.startsWith("/") || partialPath.startsWith("\\")) partialPath = partialPath.substring(1);
 		String domainPart = resourceId.getNamespace()+"/";
 		String basePath = resourceId.getPath();
-		if (basePath.startsWith("/")) basePath = basePath.substring(1);
+		if (basePath.startsWith("/") || basePath.startsWith("\\")) basePath = basePath.substring(1);
 		
 		String prefix = domainPart+basePath;
 		return (partialPath.equals(prefix));
@@ -198,13 +204,13 @@ public class StaticDataImpl {
 	 * @return
 	 */
 	public static boolean matchesDirectoryContents(String partialPath, Identifier resourceId, boolean recursive) {
-		if (partialPath.startsWith("/")) partialPath = partialPath.substring(1);
+		if (partialPath.startsWith("/") || partialPath.startsWith("\\")) partialPath = partialPath.substring(1);
 		String domainPart = resourceId.getNamespace()+"/";
 		String basePath = resourceId.getPath();
 		
 		//Chop off both leading and trailing slashes
-		if (basePath.startsWith("/")) basePath = basePath.substring(1);
-		if (basePath.endsWith("/")) basePath = basePath.substring(0, basePath.length()-1);
+		if (basePath.startsWith("/") || basePath.startsWith("\\")) basePath = basePath.substring(1);
+		if (basePath.endsWith("/") || basePath.endsWith("\\")) basePath = basePath.substring(0, basePath.length()-1);
 		
 		String prefix = domainPart+basePath;
 		if (resourceId.getPath().equals("")) prefix = prefix.substring(0, prefix.length()-1); //chop the trailing slash off on root searches
@@ -212,13 +218,13 @@ public class StaticDataImpl {
 		if (!partialPath.startsWith(prefix)) return false; //Non-matches get rejected
 
 		String relativePath = partialPath.substring(prefix.length());
-		if (relativePath.startsWith("/")) {
+		if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
 			//This path is actually *within* the prefix
 			
 			if (recursive) return true; //if we don't care about the nesting level, we can just stop here.
 			
 			relativePath = relativePath.substring(1); //Chop off that starting slash so we can get to work
-			return !relativePath.contains("/"); // It's inside this directory and not inside a subdirectory.
+			return !relativePath.contains("/") && !relativePath.contains("//"); // It's inside this directory and not inside a subdirectory.
 			
 		} else {
 			/* e.g.:
