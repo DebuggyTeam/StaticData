@@ -5,17 +5,51 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.jetbrains.annotations.NotNull;
+import org.spongepowered.include.com.google.common.base.Preconditions;
+
+import gay.debuggy.staticdata.StaticDataMod;
 import gay.debuggy.staticdata.api.StaticDataItem;
 import net.minecraft.util.Identifier;
 
 public class StaticDataImpl {
+	public static final boolean TRIM_BACKSLASHES = false;
+	
+	private static String fileName(Path p) {
+		if (p == null) return "";
+		if (p.getNameCount() == 0) return "";
+		Path fileNamePath = p.getFileName();
+		if (fileNamePath == null) return "";
+		return fileNamePath.toString();
+	}
+	
+	private static Identifier toIdentifier(@NotNull String namespace, @NotNull Path relativePath) {
+		Preconditions.checkNotNull(namespace);
+		Preconditions.checkNotNull(relativePath);
+		
+		StringBuilder equivalentPath = new StringBuilder();
+		for(int i=0; i<relativePath.getNameCount(); i++) {
+			if (i!=0) equivalentPath.append('/');
+			equivalentPath.append(relativePath.getName(i).toString());
+		}
+		
+		/*
+		 * Even if they're real backslashes that belong as part of the namespace or path elements, we can't have them
+		 * here. For the namespace, we're removing them as they're most likely to "leak" into the start or end. For the
+		 * path, we'll flip them into forward slashes. In basically every case, these two lines should do *nothing* to
+		 * the string.
+		 */
+		namespace = namespace.replace("\\", "");
+		String path = equivalentPath.toString().replace('\\', '/');
+		
+		return Identifier.of(namespace, path);
+	}
 	
 	public static void addExactData(String modId, Identifier resId, Path basePath, List<StaticDataItem> results) {
 		//Any data found as a Path will have Identifier paths relative to this path
@@ -25,15 +59,16 @@ public class StaticDataImpl {
 		
 		// List data inside packs first
 		try {
-			Iterator<Path> i = Files.list(basePath).iterator();
-			while(i.hasNext()) {
-				Path subPath = i.next();
-				
-				if (subPath.getFileName().toString().endsWith(".zip")) {
-					
-					addExactZipData(modId, resId, subPath, results);
+			Files.list(basePath).forEachOrdered(subPath -> {
+				if (fileName(subPath).endsWith(".zip")) {
+					try {
+						addExactZipData(modId, resId, subPath, results);
+					} catch (IOException e) {
+						// Unlikely to error out while iterating a directory, and should just quietly not add this data.
+					}
 				}
-			}
+			});
+			
 		} catch (IOException e) {
 			// Typically getting here means no staticdata folder exists, don't throw an error and don't return data.
 		}
@@ -53,17 +88,19 @@ public class StaticDataImpl {
 		// List data inside packs first
 		if (!Files.exists(basePath)) return;
 		try {
-			Iterator<Path> i = Files.list(basePath).iterator();
-			while(i.hasNext()) {
-				Path subPath = i.next();
-				if (!Files.isRegularFile(subPath)) continue;
+			Files.list(basePath).forEach(subPath -> {
+				if (!Files.isRegularFile(subPath)) return;
 				
 				if (subPath.getFileName().toString().endsWith(".zip")) {
-					addDirectoryZipData(modId, resId, subPath, recursive, results);
+					try {
+						addDirectoryZipData(modId, resId, subPath, recursive, results);
+					} catch (IOException e) {
+						StaticDataMod.LOGGER.error("Couldn't add zipped staticdata.", e);
+					}
 				}
-			}
+			});
 		} catch (IOException e) {
-			e.printStackTrace();
+			StaticDataMod.LOGGER.error("There was an error enumerating data in a staticdata pack.", e);
 		}
 		
 		// List standalone files
@@ -72,19 +109,15 @@ public class StaticDataImpl {
 		if (Files.isDirectory(requestedPath)) {
 			List<Path> fileList = listFiles(requestedPath, recursive);
 			
-			for(Path file : fileList) {
+			for(Path path : fileList) {
 				
-				if (!Files.isRegularFile(file)) return; //Don't list folders here
+				if (!Files.isRegularFile(path)) return; //Don't list folders here
 				
-				String identifiedResourcePath = relativePath.relativize(file).toString();
-				if (identifiedResourcePath.startsWith("/") || identifiedResourcePath.startsWith("\\")) {
-					identifiedResourcePath = identifiedResourcePath.substring(1);
-				}
-				PathDataItem item = new PathDataItem(modId, Identifier.of(resId.getNamespace(), identifiedResourcePath), file);
+				Identifier resourceId = toIdentifier(modId, relativePath.relativize(path));
+				
+				PathDataItem item = new PathDataItem(modId, resourceId, path);
 				results.add(item);
 			}
-			
-			//results.add(new PathDataItem(modId, resId, requestedPath));
 		}
 	}
 	
@@ -186,10 +219,10 @@ public class StaticDataImpl {
 	}
 	
 	public static boolean matchesExactFile(String partialPath, Identifier resourceId) {
-		if (partialPath.startsWith("/") || partialPath.startsWith("\\")) partialPath = partialPath.substring(1);
+		if (partialPath.startsWith("/")) partialPath = partialPath.substring(1);
 		String domainPart = resourceId.getNamespace()+"/";
 		String basePath = resourceId.getPath();
-		if (basePath.startsWith("/") || basePath.startsWith("\\")) basePath = basePath.substring(1);
+		if (basePath.startsWith("/")) basePath = basePath.substring(1);
 		
 		String prefix = domainPart+basePath;
 		return (partialPath.equals(prefix));
@@ -204,13 +237,13 @@ public class StaticDataImpl {
 	 * @return
 	 */
 	public static boolean matchesDirectoryContents(String partialPath, Identifier resourceId, boolean recursive) {
-		if (partialPath.startsWith("/") || partialPath.startsWith("\\")) partialPath = partialPath.substring(1);
+		if (partialPath.startsWith("/")) partialPath = partialPath.substring(1);
 		String domainPart = resourceId.getNamespace()+"/";
 		String basePath = resourceId.getPath();
 		
 		//Chop off both leading and trailing slashes
-		if (basePath.startsWith("/") || basePath.startsWith("\\")) basePath = basePath.substring(1);
-		if (basePath.endsWith("/") || basePath.endsWith("\\")) basePath = basePath.substring(0, basePath.length()-1);
+		if (basePath.startsWith("/")) basePath = basePath.substring(1);
+		if (basePath.endsWith("/")) basePath = basePath.substring(0, basePath.length()-1);
 		
 		String prefix = domainPart+basePath;
 		if (resourceId.getPath().equals("")) prefix = prefix.substring(0, prefix.length()-1); //chop the trailing slash off on root searches
@@ -218,13 +251,13 @@ public class StaticDataImpl {
 		if (!partialPath.startsWith(prefix)) return false; //Non-matches get rejected
 
 		String relativePath = partialPath.substring(prefix.length());
-		if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+		if (relativePath.startsWith("/")) {
 			//This path is actually *within* the prefix
 			
 			if (recursive) return true; //if we don't care about the nesting level, we can just stop here.
 			
 			relativePath = relativePath.substring(1); //Chop off that starting slash so we can get to work
-			return !relativePath.contains("/") && !relativePath.contains("//"); // It's inside this directory and not inside a subdirectory.
+			return !relativePath.contains("/"); // It's inside this directory and not inside a subdirectory.
 			
 		} else {
 			/* e.g.:
